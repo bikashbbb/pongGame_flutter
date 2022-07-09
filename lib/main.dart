@@ -1,6 +1,4 @@
 // ignore_for_file: prefer_final_fields
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:pong/constans.dart';
@@ -88,6 +86,7 @@ class _PlayGroundState extends State<PlayGround> {
 
           Obx(
             () => AnimatedPadding(
+                key: _ballGlobalKey,
                 curve: Curves.linear,
                 onEnd: () {
                   _ballController.onAnimationEnded(_ballController.isGoingDown
@@ -98,8 +97,7 @@ class _PlayGroundState extends State<PlayGround> {
                     top: _ballController._topDIff.value,
                     left: _ballController._rightDiff.value,
                     bottom: _ballController._bottomDiff.value),
-                key: _ballGlobalKey,
-                duration: Duration(milliseconds: 500),
+                duration: Duration(seconds: _ballController.seconds),
                 /* bottom: 639, //,._topDIff.value,
                 left: _ballController._rightDiff.value, */
                 child: _ball()),
@@ -168,7 +166,6 @@ class _PlayGroundState extends State<PlayGround> {
       childWhenDragging: const SizedBox(),
       onDragEnd: (details) {
         player.value = details.offset.dx;
-        print("end value ${player.value}");
       },
       onDragUpdate: (dragDetails) {
         player.value += dragDetails.delta.dx;
@@ -203,6 +200,7 @@ class BallControlls extends GetxController {
   BallControlls(this.context);
   bool isGameOver = false;
   bool isGoingDown = true;
+  int seconds = 1;
 
   RxDouble _topDIff = 0.0.obs;
   RxDouble _rightDiff = 150.0.obs;
@@ -219,7 +217,7 @@ class BallControlls extends GetxController {
     topDIffvalue = height -
         (mediaQueryData.padding.top + bottonHeight + appbarHeight) -
         (ballHeight + 10 + bottonHeight);
-    Physics physics = Physics(height, isGoingDown, mediaQueryData.size.width);
+    _physics = Physics(height, mediaQueryData.size.width);
     _topDIff.value = topDIffvalue + 3;
     // });
   }
@@ -234,7 +232,9 @@ class BallControlls extends GetxController {
       print("ball ofset$ballOffset");
       print("bat offset$playeroffset");
 
-      bouncingPhysics = _physics.getAnimationComp(ballOffset, playeroffset);
+      bouncingPhysics =
+          _physics.getAnimationComp(ballOffset, playeroffset, isGoingDown);
+      print(bouncingPhysics);
       // in micro secs !
       //Timer.periodic(Duration(seconds: 9), (timer) {
       if (ballOffset.dx >= playeroffset) {
@@ -248,10 +248,12 @@ class BallControlls extends GetxController {
 
   void _checkCondition(bool condition) {
     if (condition) {
+      _rightDiff.value = bouncingPhysics.rightBounceTo;
+
       if (isGoingDown) {
-        _topDIff.value = 20;
+        _topDIff.value = bouncingPhysics.topBounceto;
       } else {
-        _topDIff.value = topDIffvalue;
+        _topDIff.value = bouncingPhysics.topBounceto;
       }
       isGoingDown = !isGoingDown;
 
@@ -268,11 +270,9 @@ class BallControlls extends GetxController {
     }
   }
 
-  void _dialogBox() {
-    
-  }
+  void _dialogBox() {}
 
-  Offset _getposition(GlobalKey key, double x) {
+  static Offset _getposition(GlobalKey key, double x) {
     RenderBox box = key.currentContext!.findRenderObject() as RenderBox;
     return box.localToGlobal(Offset(x, 0));
   }
@@ -283,18 +283,57 @@ class Physics {
   double width;
 
   /// to get the right top
-  bool isGoingDown;
-  Physics(this.height, this.isGoingDown, this.width);
+  Physics(this.height, this.width);
 
   /// get the bounce obj when hit by the surface
-  BounceComponenets getAnimationComp(Offset ballOffset, double batx) {
+  BounceComponenets getAnimationComp(
+      Offset ballOffset, double batx1, bool isGoingDown) {
     /// now we will write the p
     // right chai angle ho, 0 huna sakxa yaa, width jati (angle ko lagi main necessity is [point of impact])
     // height ko lagi pani point of impact is important...
-    double pointOfImpact = ballOffset.dx;
-    // will make a multiply wala ango !
-    //
-    return BounceComponenets(topBounceto, rightBounceTo);
+    double pointOfImpact = _getPointOfContact(ballOffset);
+    double nexttop = _nextTop(batx1);
+    double nextRight = _nextRight(nexttop, pointOfImpact, batx1);
+    print("next right $nextRight");
+    print("next top$nexttop");
+    return BounceComponenets(
+      20,
+      190,
+      1, /* _animatingTime(nexttop) */
+    );
+  }
+
+  double _getPointOfContact(Offset balloffset) {
+    return balloffset.dx + 40 / 2;
+  }
+
+  double _nextTop(double batx1) {
+    double baTposition = _originOfPlayer;
+    if (baTposition > _originOfPlayer) {
+      return height - (baTposition - _originOfPlayer);
+    }
+    return height - (_originOfPlayer - baTposition);
+  }
+
+  /// returns width, or 0 if height isnot 0 or max, else returns point of contact
+  double _nextRight(double nextTop, double pointOfcontact, double batPosition) {
+    if (height - nextTop > 100) {
+      if (pointOfcontact >= batPosition / 2) {
+        return width;
+      }
+      return 0;
+    }
+    // if height is max the screen
+    return pointOfcontact;
+  }
+
+  // time depends on the nextheight top
+  /* int _animatingTime(double nextTop) {
+    return nextTop;
+  } */
+
+  get _originOfPlayer {
+    return width / 2;
   }
 }
 
@@ -305,5 +344,8 @@ class BounceComponenets {
   /// angle
   double rightBounceTo;
 
-  BounceComponenets(this.topBounceto, this.rightBounceTo);
+  /// time to animate
+  int second;
+
+  BounceComponenets(this.topBounceto, this.rightBounceTo, this.second);
 }
