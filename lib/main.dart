@@ -1,4 +1,6 @@
 // ignore_for_file: prefer_final_fields
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:pong/constans.dart';
@@ -204,13 +206,13 @@ class BallControlls extends GetxController {
   // wall ma bounce vayesi of course top chai 0 or final huna parcha anii ! right chai physics !
 
   bool isGoingDown = true;
-  int seconds = 1;
+  int seconds = 3;
 
   RxDouble _topDIff = 0.0.obs;
   RxDouble _rightDiff = 150.0.obs;
   RxDouble _bottomDiff = 0.0.obs;
   // lets get the x cordinate value of draggables
-  static double player1y = 0;
+  double player1y = 0;
   double player2y = ballHeight;
 
   late BounceComponenets bouncingPhysics;
@@ -227,7 +229,7 @@ class BallControlls extends GetxController {
         (ballHeight + 10 + bottonHeight);
     //print("bottom diffvalue $bottomDIffvalue");
     _physics = Physics(height, mediaQueryData.size.width, player1y);
-    _topDIff.value = player1y + 3;
+    _topDIff.value = player1y;
     ballOffset = Offset(_rightDiff.value, _topDIff.value);
     // });
   }
@@ -238,22 +240,21 @@ class BallControlls extends GetxController {
     // get positions
     if (!isGameOver) {
       Offset ballOffset = getballOffset;
-      /* print("ball ko position ${ballOffset}");
-      print("bat ko position");
-      print(_getposition(_player2Key, playeroffset)); */
-      if (_isBallOnWall() /* _isBallOnWall(playeroffset) */) {
-        // this means it has hitted the fcking wall
-        print("wall hit vo");
+      if (_isBallOnWall()) {
+        print("ball on the wall");
+        bouncingPhysics = _physics.onHittingWall(isGoingDown, ballOffset);
+        _checkCondition(true);
       } else {
         bouncingPhysics =
             _physics.getAnimationComp(ballOffset, playeroffset, isGoingDown);
-        // in micro secs !
-        //Timer.periodic(Duration(seconds: 9), (timer) {
-        if (ballOffset.dx >= playeroffset) {
-          _checkCondition(ballOffset.dx >= playeroffset &&
-              ballOffset.dx <= playeroffset + 100);
+        if (ballOffset.dx >= playeroffset &&
+            ballOffset.dx <= playeroffset + 100) {
+          _checkCondition(true);
+          print("0");
         } else {
-          _checkCondition(ballOffset.dx + 40 >= playeroffset);
+          print("1");
+          _checkCondition(ballOffset.dx + 40 >= playeroffset &&
+              ballOffset.dx <= playeroffset + 100);
         }
       }
     }
@@ -262,13 +263,7 @@ class BallControlls extends GetxController {
   void _checkCondition(bool condition) {
     if (condition) {
       _rightDiff.value = bouncingPhysics.rightBounceTo;
-
-      if (isGoingDown) {
-        _topDIff.value = bouncingPhysics.topBounceto;
-      } else {
-        _topDIff.value = bouncingPhysics.topBounceto;
-      }
-      isGoingDown = !isGoingDown;
+      _topDIff.value = bouncingPhysics.topBounceto;
     } else {
       // down vaye down nai janxa up vaye up nai janxa.
       if (isGoingDown) {
@@ -279,6 +274,10 @@ class BallControlls extends GetxController {
       isGameOver = true;
       PlayGround.increaseScore(isGoingDown);
     }
+    if (!_isBallOnWall()) {
+      isGoingDown = !isGoingDown;
+    }
+
     ballOffset =
         Offset(bouncingPhysics.rightBounceTo, bouncingPhysics.topBounceto);
   }
@@ -289,12 +288,11 @@ class BallControlls extends GetxController {
     }
   } */
   // so height ko probability ko adar ma right select garam also the second.
-  void _onHittingWall() {}
 
   void _dialogBox() {}
 
   bool _isBallOnWall() {
-    if (ballOffset.dy == player1y + 3 || ballOffset.dy == player2y) {
+    if (ballOffset.dy == player1y || ballOffset.dy == player2y) {
       return false;
     }
     return true;
@@ -311,6 +309,10 @@ class Physics {
 
   double player1y;
 
+  late double startProbValper = 70;
+  late double nexttopprob2;
+  late double nextTop;
+
   /// to get the right top
   Physics(this.height, this.width, this.player1y);
 
@@ -321,49 +323,66 @@ class Physics {
     // right chai angle ho, 0 huna sakxa yaa, width jati (angle ko lagi main necessity is [point of impact])
     // height ko lagi pani point of impact is important...
     double pointOfImpact = _getPointOfContact(ballOffset);
-    double nexttop =  _nextTop(batx1);
-
-    print("nexttop $nexttop");
-    double nextRight = _nextRight(nexttop, pointOfImpact, batx1);
+    nexttopprob2 = _nextTopProb2(batx1, isGoingDown);
+    double nexttopVal = _nextTop();
+    nextTop = nexttopVal;
+    double nextRight = _nextRight(nexttopVal, pointOfImpact, batx1);
     double seconds = 1;
     return BounceComponenets(
-      nexttop,
-      nextRight,
-      1, /* _animatingTime(nexttop) */
-    );
+        nextTop,
+        nextRight,
+        1,
+        /* _animatingTime(nexttop) */
+        false);
   }
 
   double _getPointOfContact(Offset balloffset) {
     return balloffset.dx + 40 / 2;
   }
 
-// bug chai yo top maxa
-  double _nextTop(double batx1,double playerY,double playerX) {
-    double diffValue = width*0.32;
-    // jati right janxa teti height kaam hudai janxa kyaaa
-    if (batx1 > _originOfPlayer) {
-      if (batx1 - _originOfPlayer >= diffValue) {
-        return playerY - diffValue;
-      }
-      return ballHeight;
-    } else {
-      if (_originOfPlayer - batx1 >= diffValue) {
-        return playerY - diffValue;
-      }
-      return ballHeight;
+  /// returns the top of the ball with using probability/random
+  double _nextTop() {
+    if (nexttopprob2 == 20 || nexttopprob2 == player1y) {
+      return nexttopprob2;
     }
+    Random random = Random();
+    return _startProbVal() +
+        random.nextInt(nexttopprob2.round() - _startProbVal()).toDouble();
+  }
+
+// bug chai yo top maxa
+  double _nextTopProb2(double batx1, bool isGoingDown) {
+    double diff = batx1 - _originOfPlayer;
+    if (_getDiffPer(diff.abs()) >= 50) {
+      // return height with cal
+      double widthPerc = (batx1 / width) * 100;
+      if (!isGoingDown) {
+        return height - (widthPerc * height) / 100;
+      }
+      return (widthPerc * height) / 100;
+    }
+    // ava lets use the isGoingDown shit !!
+    // return down playerY or upplayerY on context;
+    if (isGoingDown) {
+      return 20;
+    }
+    return player1y;
   }
 
   /// returns width, or 0 if height isnot 0 or max, else returns point of contact
   double _nextRight(double nextTop, double pointOfcontact, double batPosition) {
     // player2y ==20
-    if (nextTop == 20 || nextTop == BallControlls.player1y) {
-      return pointOfcontact;
+    if (nextTop == 20 || nextTop == player1y) {
+      if (pointOfcontact >= batPosition / 2) {
+        return pointOfcontact + (pointOfcontact / 100);
+      }
+      return pointOfcontact - (pointOfcontact / 100);
     }
     // if height is max the screen
     else {
       if (pointOfcontact >= batPosition / 2) {
-        return width;
+        print("k ho lado");
+        return width - 40;
       }
       return 0;
     }
@@ -376,6 +395,30 @@ class Physics {
 
   get _originOfPlayer {
     return width / 2;
+  }
+
+  /// calculates time to travel with the use of next top over height out of 2 seconds
+  int getSeconds() {
+    return 1;
+  }
+
+  int _startProbVal() {
+    return ((nexttopprob2 * startProbValper) / 100).round();
+  }
+
+  double _getDiffPer(double diff) {
+    return (diff * 100) / _originOfPlayer;
+  }
+
+  BounceComponenets onHittingWall(bool isGoingDown, Offset ballPosition) {
+    // dowb ho vane 20, natra chai player y ]
+    int rightVal = Random().nextInt(width.toInt() - 40);
+    if (!isGoingDown) {
+      nextTop = 20;
+    } else {
+      nextTop = player1y;
+    }
+    return BounceComponenets(nextTop, rightVal.toDouble(), 2, true);
   }
 }
 
@@ -390,5 +433,8 @@ class BounceComponenets {
   /// time to animate
   int second;
 
-  BounceComponenets(this.topBounceto, this.rightBounceTo, this.second);
+  /// is the ball on the wall
+  bool isOnWall;
+  BounceComponenets(
+      this.topBounceto, this.rightBounceTo, this.second, this.isOnWall);
 }
