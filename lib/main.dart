@@ -166,9 +166,6 @@ class _PlayGroundState extends State<PlayGround> {
         ),
       ),
       childWhenDragging: const SizedBox(),
-      onDragEnd: (details) {
-        player.value = details.offset.dx;
-      },
       onDragUpdate: (dragDetails) {
         player.value += dragDetails.delta.dx;
       },
@@ -241,7 +238,6 @@ class BallControlls extends GetxController {
     if (!isGameOver) {
       Offset ballOffset = getballOffset;
       if (_isBallOnWall()) {
-        print("ball on the wall");
         bouncingPhysics = _physics.onHittingWall(isGoingDown, ballOffset);
         _checkCondition(true);
       } else {
@@ -250,9 +246,7 @@ class BallControlls extends GetxController {
         if (ballOffset.dx >= playeroffset &&
             ballOffset.dx <= playeroffset + 100) {
           _checkCondition(true);
-          print("0");
         } else {
-          print("1");
           _checkCondition(ballOffset.dx + 40 >= playeroffset &&
               ballOffset.dx <= playeroffset + 100);
         }
@@ -323,6 +317,7 @@ class Physics {
     // right chai angle ho, 0 huna sakxa yaa, width jati (angle ko lagi main necessity is [point of impact])
     // height ko lagi pani point of impact is important...
     double pointOfImpact = _getPointOfContact(ballOffset);
+    print("ball ko offse$ballOffset");
     nexttopprob2 = _nextTopProb2(batx1, isGoingDown);
     double nexttopVal = _nextTop();
     nextTop = nexttopVal;
@@ -337,7 +332,7 @@ class Physics {
   }
 
   double _getPointOfContact(Offset balloffset) {
-    return balloffset.dx + 40 / 2;
+    return (balloffset.dx + 40) / 2;
   }
 
   /// returns the top of the ball with using probability/random
@@ -353,7 +348,9 @@ class Physics {
 // bug chai yo top maxa
   double _nextTopProb2(double batx1, bool isGoingDown) {
     double diff = batx1 - _originOfPlayer;
-    if (_getDiffPer(diff.abs()) >= 50) {
+    print("batx1 $batx1 origin $_originOfPlayer");
+    print(_getDiffPer(diff.abs()));
+    if (_getDiffPer(diff.abs()) >= 20) {
       // return height with cal
       double widthPerc = (batx1 / width) * 100;
       if (!isGoingDown) {
@@ -372,16 +369,20 @@ class Physics {
   /// returns width, or 0 if height isnot 0 or max, else returns point of contact
   double _nextRight(double nextTop, double pointOfcontact, double batPosition) {
     // player2y ==20
+
+    Random random = Random();
     if (nextTop == 20 || nextTop == player1y) {
-      if (pointOfcontact >= batPosition / 2) {
-        return pointOfcontact + (pointOfcontact / 100);
+      print("point of c$pointOfcontact, bat po$batPosition");
+      if (pointOfcontact >= (batPosition + 100) / 2) {
+        /// debug this !
+        int range = (width - pointOfcontact.toInt()).toInt();
+        return pointOfcontact + random.nextInt(range).toDouble();
       }
-      return pointOfcontact - (pointOfcontact / 100);
+      return pointOfcontact - random.nextInt(pointOfcontact.toInt());
     }
     // if height is max the screen
     else {
-      if (pointOfcontact >= batPosition / 2) {
-        print("k ho lado");
+      if (pointOfcontact >= (batPosition+100) / 2) {
         return width - 40;
       }
       return 0;
@@ -398,7 +399,7 @@ class Physics {
   }
 
   /// calculates time to travel with the use of next top over height out of 2 seconds
-  int getSeconds() {
+  int _getSeconds() {
     return 1;
   }
 
@@ -407,12 +408,13 @@ class Physics {
   }
 
   double _getDiffPer(double diff) {
-    return (diff * 100) / _originOfPlayer;
+    return (diff * 100) / width;
   }
 
   BounceComponenets onHittingWall(bool isGoingDown, Offset ballPosition) {
     // dowb ho vane 20, natra chai player y ]
     int rightVal = Random().nextInt(width.toInt() - 40);
+    // we will use the height ani tesko adarma random function chalayera halka criteria rakhne
     if (!isGoingDown) {
       nextTop = 20;
     } else {
