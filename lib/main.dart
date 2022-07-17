@@ -1,4 +1,5 @@
 // ignore_for_file: prefer_final_fields
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -8,6 +9,7 @@ import 'package:pong/constans.dart';
 void main() {
   runApp(const MyApp());
 }
+// todos: Second lai determine garam ava ani just some bugs thats it done , ani right left halka choosy banaune
 
 class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
@@ -48,6 +50,7 @@ class PlayGround extends StatefulWidget {
 class _PlayGroundState extends State<PlayGround> {
   // have this in value notifier !
   double topPadding = 10;
+  late double width;
   ValueNotifier<double> _player1X = ValueNotifier(100);
   ValueNotifier<double> _player2X = ValueNotifier(170);
 
@@ -65,6 +68,7 @@ class _PlayGroundState extends State<PlayGround> {
 
   @override
   Widget build(BuildContext context) {
+    width = MediaQuery.of(context).size.width;
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
@@ -72,6 +76,7 @@ class _PlayGroundState extends State<PlayGround> {
         backgroundColor: bgColor,
       ),
       body: Stack(
+        clipBehavior: Clip.antiAliasWithSaveLayer,
         // there is a pointer at the left shit haina ani tei pointer chai starting ho k, left is the x cordinate
         children: [
           ValueListenableBuilder(
@@ -99,10 +104,13 @@ class _PlayGroundState extends State<PlayGround> {
                     top: _ballController._topDIff.value,
                     left: _ballController._rightDiff.value,
                     bottom: _ballController._bottomDiff.value),
-                duration: Duration(seconds: _ballController.seconds),
+                duration: Duration(
+                    milliseconds: _ballController.isGameOver.value
+                        ? 0
+                        : _ballController.milSeconds.value),
                 /* bottom: 639, //,._topDIff.value,
                 left: _ballController._rightDiff.value, */
-                child: _ball()),
+                child: _ball(_ballController.isGameOver.value)),
           ),
 
           Column(
@@ -180,13 +188,23 @@ class _PlayGroundState extends State<PlayGround> {
     );
   }
 
-  Widget _ball() => CircleAvatar(
-        backgroundColor: ballColor,
+  Widget _ball(bool isGameOver) => CircleAvatar(
+        backgroundColor: isGameOver ? Colors.transparent : ballColor,
         child: const SizedBox(
           height: 20,
           width: 20,
         ),
       );
+
+  void _onDragUpdate(ValueNotifier player, DragUpdateDetails dragDetails) {
+    if (dragDetails.delta.dx <= 0.0) {
+      player.value = 0.0;
+    } else if (dragDetails.delta.dx >= width) {
+      player.value = width;
+    } else {
+      player.value += dragDetails.delta.dx;
+    }
+  }
 }
 
 GlobalKey _ballGlobalKey = GlobalKey();
@@ -197,13 +215,13 @@ class BallControlls extends GetxController {
   BuildContext context;
 
   BallControlls(this.context);
-  bool isGameOver = false;
+  RxBool isGameOver = false.obs;
 
   /// use this to difference between is ball boucning on wall or the bat..
   // wall ma bounce vayesi of course top chai 0 or final huna parcha anii ! right chai physics !
 
-  bool isGoingDown = true;
-  int seconds = 3;
+  late bool isGoingDown;
+  RxInt milSeconds = 1000.obs;
 
   RxDouble _topDIff = 0.0.obs;
   RxDouble _rightDiff = 150.0.obs;
@@ -218,15 +236,21 @@ class BallControlls extends GetxController {
   late Offset ballOffset;
 
   void startBalling() {
-    // start the animation !
+    milSeconds.value = 1200;
+    isGoingDown = true;
+    //start the animation !
     MediaQueryData mediaQueryData = MediaQuery.of(context);
     double height = mediaQueryData.size.height;
     player1y = height -
         (mediaQueryData.padding.top + bottonHeight + appbarHeight) -
         (ballHeight + 10 + bottonHeight);
     //print("bottom diffvalue $bottomDIffvalue");
+    if (isGameOver.value = false) {
+      isGameOver.value = true;
+    }
     _physics = Physics(height, mediaQueryData.size.width, player1y);
     _topDIff.value = player1y;
+
     ballOffset = Offset(_rightDiff.value, _topDIff.value);
     // });
   }
@@ -235,7 +259,7 @@ class BallControlls extends GetxController {
   void onAnimationEnded(double playeroffset) {
     // check if the ball touched the bat if yes restart the animation
     // get positions
-    if (!isGameOver) {
+    if (!isGameOver.value) {
       Offset ballOffset = getballOffset;
       if (_isBallOnWall()) {
         bouncingPhysics = _physics.onHittingWall(isGoingDown, ballOffset);
@@ -258,15 +282,17 @@ class BallControlls extends GetxController {
     if (condition) {
       _rightDiff.value = bouncingPhysics.rightBounceTo;
       _topDIff.value = bouncingPhysics.topBounceto;
+      milSeconds.value = bouncingPhysics.milSecs;
     } else {
       // down vaye down nai janxa up vaye up nai janxa.
+
       if (isGoingDown) {
-        _topDIff.value = 2000;
-      } else {
-        _bottomDiff.value = 2000;
+        _topDIff.value = 800;
       }
-      isGameOver = true;
+      isGameOver.value = true;
+      _topDIff.value = 0;
       PlayGround.increaseScore(isGoingDown);
+      _dialogBox();
     }
     if (!_isBallOnWall()) {
       isGoingDown = !isGoingDown;
@@ -283,7 +309,32 @@ class BallControlls extends GetxController {
   } */
   // so height ko probability ko adar ma right select garam also the second.
 
-  void _dialogBox() {}
+  void _dialogBox() {
+    showDialog(
+        context: context,
+        builder: (builder) {
+          return AlertDialog(
+            title: const Text(
+              'Game Over !',
+              style: TextStyle(color: Colors.black),
+            ),
+            content: Row(
+              children: [
+                Expanded(
+                    child: MaterialButton(
+                        color: Colors.green,
+                        onPressed: () {
+                          Navigator.of(builder).pop();
+                          startBalling();
+                        },
+                        child: const Text(
+                          'Replay ?',
+                        ))),
+              ],
+            ),
+          );
+        });
+  }
 
   bool _isBallOnWall() {
     if (ballOffset.dy == player1y || ballOffset.dy == player2y) {
@@ -307,6 +358,8 @@ class Physics {
   late double nexttopprob2;
   late double nextTop;
 
+  int milSeconds = 0;
+
   /// to get the right top
   Physics(this.height, this.width, this.player1y);
 
@@ -322,13 +375,18 @@ class Physics {
     double nexttopVal = _nextTop();
     nextTop = nexttopVal;
     double nextRight = _nextRight(nexttopVal, pointOfImpact, batx1);
-    double seconds = 1;
+    milSeconds = _toMillSeconds(_getMilSeconds(isGoingDown, false));
+    print("time is  $milSeconds");
     return BounceComponenets(
         nextTop,
         nextRight,
-        1,
+        milSeconds,
         /* _animatingTime(nexttop) */
         false);
+  }
+
+  int _toMillSeconds(double value) {
+    return (value * 1000).toInt() + 200;
   }
 
   double _getPointOfContact(Offset balloffset) {
@@ -341,8 +399,8 @@ class Physics {
       return nexttopprob2;
     }
     Random random = Random();
-    return _startProbVal() +
-        random.nextInt(nexttopprob2.round() - _startProbVal()).toDouble();
+    int range = nexttopprob2.round() - _startProbVal();
+    return (_startProbVal() + random.nextInt(range.abs()).toDouble()).abs();
   }
 
 // bug chai yo top maxa
@@ -382,7 +440,7 @@ class Physics {
     }
     // if height is max the screen
     else {
-      if (pointOfcontact >= (batPosition+100) / 2) {
+      if (pointOfcontact >= (batPosition + 100) / 2) {
         return width - 40;
       }
       return 0;
@@ -399,8 +457,21 @@ class Physics {
   }
 
   /// calculates time to travel with the use of next top over height out of 2 seconds
-  int _getSeconds() {
-    return 1;
+  double _getMilSeconds(bool isGOingDown, bool isOnwall) {
+    if (isOnwall) {
+      // onwall maho vane , check goingdown ra up panii !
+      return 0.2;
+    } else {
+      double distanceFromPlayer;
+      if (isGOingDown) {
+        // player1 is the main force
+        distanceFromPlayer = player1y - nextTop;
+      } else {
+        // 20 is the main force .
+        distanceFromPlayer = nextTop;
+      }
+      return distanceFromPlayer / player1y;
+    }
   }
 
   int _startProbVal() {
@@ -420,7 +491,8 @@ class Physics {
     } else {
       nextTop = player1y;
     }
-    return BounceComponenets(nextTop, rightVal.toDouble(), 2, true);
+    milSeconds = _toMillSeconds(_getMilSeconds(isGoingDown, true));
+    return BounceComponenets(nextTop, rightVal.toDouble(), milSeconds, true);
   }
 }
 
@@ -433,10 +505,10 @@ class BounceComponenets {
   double rightBounceTo;
 
   /// time to animate
-  int second;
+  int milSecs;
 
   /// is the ball on the wall
   bool isOnWall;
   BounceComponenets(
-      this.topBounceto, this.rightBounceTo, this.second, this.isOnWall);
+      this.topBounceto, this.rightBounceTo, this.milSecs, this.isOnWall);
 }
