@@ -60,14 +60,14 @@ class _PlayGroundState extends State<PlayGround> {
   void initState() {
     super.initState();
     // lets animate suruma ball middle ma hunxa after that it will get animated
-    _ballController = Get.put(BallControlls(context));
-
-    WidgetsBinding.instance!
-        .addPostFrameCallback((_) => _ballController.startBalling());
   }
 
   @override
   Widget build(BuildContext context) {
+    _ballController = Get.put(BallControlls(context));
+    WidgetsBinding.instance!
+        .addPostFrameCallback((_) => _ballController.startBalling());
+
     width = MediaQuery.of(context).size.width;
     return Scaffold(
       backgroundColor: bgColor,
@@ -313,26 +313,28 @@ class BallControlls extends GetxController {
     showDialog(
         context: context,
         builder: (builder) {
-          return AlertDialog(
-            title: const Text(
-              'Game Over !',
-              style: TextStyle(color: Colors.black),
-            ),
-            content: Row(
-              children: [
-                Expanded(
-                    child: MaterialButton(
-                        color: Colors.green,
-                        onPressed: () {
-                          Navigator.of(builder).pop();
-                          startBalling();
-                        },
-                        child: const Text(
-                          'Replay ?',
-                        ))),
-              ],
-            ),
-          );
+          return WillPopScope(
+              onWillPop: () async => false,
+              child: AlertDialog(
+                title: const Text(
+                  'Game Over !',
+                  style: TextStyle(color: Colors.black),
+                ),
+                content: Row(
+                  children: [
+                    Expanded(
+                        child: MaterialButton(
+                            color: Colors.green,
+                            onPressed: () {
+                              Navigator.of(builder).pop();
+                              startBalling();
+                            },
+                            child: const Text(
+                              'Replay ?',
+                            ))),
+                  ],
+                ),
+              ));
         });
   }
 
