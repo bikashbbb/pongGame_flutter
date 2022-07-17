@@ -7,5 +7,6 @@ How to use the project?
 Also, used Flutter Getx package for state management( Optimization).
 
 A preview of the Game with simple design..
-![Screenshot_1658077564](https://user-images.githubusercontent.com/63708892/179416828-6c90c202-a9a4-43cc-8754-f73e5a0188e6.png)
+
+![Screenshot_1658077762](https://user-images.githubusercontent.com/63708892/179416924-7ca322e7-2011-47f6-b327-cb17fc16a743.png)
 
