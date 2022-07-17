@@ -1,4 +1,3 @@
-![Screenshot_1658077564](https://user-images.githubusercontent.com/63708892/179416818-0595fee0-0aae-45bd-8f24-2b242024560e.png)
 # pong
 
 A Simple pong game written in flutter without using any external library and custom physics ..
